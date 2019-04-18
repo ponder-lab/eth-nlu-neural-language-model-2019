@@ -1,3 +1,7 @@
+#leonhard logs
+lsf.*
+
+
 /logs
 **/logs/
 **/tf_ckpts/
