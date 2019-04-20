@@ -17,16 +17,17 @@ import tensorflow as tf
 
 # Local modules
 from global_variable import SPECIAL, SENTENCE_LENGTH, PATH_CONTINUATION, BATCH_SIZE, PATH_VOCAB, PATH_SUBMISSION
-from util import build_continuation_dataset, build_vocab_lookup
+from util import build_vocab_lookup
+from dataset import build_continuation_dataset
 
 def conditional_generation(word_to_index_table,index_to_word_table, model=None):
     '''
     Builds a dataset of the sentences that will be extended by our model. Used our model
-    to predict sentences of length less or equal than 20. If the <eos> tag occurs 
-    before the 20th position in the sentence, it cuts off the rest of the sentence. 
-    Predictions are stored in the respective submission file. 
+    to predict sentences of length less or equal than 20. If the <eos> tag occurs
+    before the 20th position in the sentence, it cuts off the rest of the sentence.
+    Predictions are stored in the respective submission file.
 
-    Arguments: 
+    Arguments:
         - word_to_index_table: vocabulary lookup table that maps words to indices
         - index_to_word_table: vocabulary lookup table that maps indices to words
         - model: Language model that is used for predictions
@@ -68,15 +69,15 @@ def conditional_generation(word_to_index_table,index_to_word_table, model=None):
             eos = eos[0]+1 if len(eos)>0 else 20
             #take part to <eos> or at most 20 words
             curr_sentence = curr_sentence[:min(eos,20)]
-            
+
             #TODO filter out end of sentence if it contains <eos>
             predicted_sentence.append(curr_sentence)
-        #only one batch for now    
+        #only one batch for now
         break
     pred = np.array(predicted_sentence)
     pred = sentences_to_text(index_to_word_table,pred)
     pd.DataFrame(pred).to_csv(PATH_SUBMISSION+'group35.continuation',sep=' ', header=False , index=False)
-    return 
+    return
 
 
 def sentences_to_text(index_to_word_table, sentence):

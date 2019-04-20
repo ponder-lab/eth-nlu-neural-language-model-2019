@@ -1,10 +1,10 @@
 '''
-Natural Language Understanding 
+Natural Language Understanding
 
 Project 1: Neural Language Model
 Task 1: RNN Language Modelling
 
-File used to compute the perplexity of given evaluation sentences. 
+File used to compute the perplexity of given evaluation sentences.
 
 Authors: Nicolas Küchler, Philippe Blatter, Lucas Brunner, Fynn Faber
 Date: 17.04.2019
@@ -18,23 +18,24 @@ import tensorflow as tf
 
 # Local modules
 from global_variable import SPECIAL, SENTENCE_LENGTH,PATH_TEST, BATCH_SIZE, PATH_SUBMISSION,PATH_VOCAB
-from util import build_dataset, build_vocab_lookup
+from util import build_vocab_lookup
+from dataset import build_dataset
 from model import Perplexity
 
 def run_task1(word_to_index_table, model, task_nr, manager, checkpoint):
     '''
-    Restores the model parameters, loads the test set and then computes the perplexity 
+    Restores the model parameters, loads the test set and then computes the perplexity
     for the given sentences.
-    
-    Arguments: 
-        - word_to_index_table: 
+
+    Arguments:
+        - word_to_index_table:
         - model: trained model used to compute the perplexity
         - task_nr: defines the experiment number
         - manager: Coordinates the storing and restoring of the latest model and optimizer parameters
         - checkpoint: Checkpoint object, used for storing and restoring the latest model and optimizer parameters
     '''
 
-    # restore the model 
+    # restore the model
     checkpoint.restore(manager.latest_checkpoint)
 
     print('started: run_task1')
@@ -60,8 +61,8 @@ def run_task1(word_to_index_table, model, task_nr, manager, checkpoint):
             perplexity.update_state(labels[i,:], preds[i,:])
             perp_res.append(perplexity.result().numpy())
             perplexity.reset_states()
-        
+
     perp_res = np.reshape(np.array(perp_res),newshape=(-1,1))
     print(f'perp_res.shape: {perp_res.shape}')
     pd.DataFrame(perp_res).to_csv(PATH_SUBMISSION+'group35.perplexity'+task_nr,sep=' ', header=False , index=False)
-    return 
+    return

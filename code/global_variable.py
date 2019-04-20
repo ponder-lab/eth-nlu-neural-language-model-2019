@@ -1,6 +1,6 @@
 # Standard packages
-import numpy as np 
-import pandas as pd 
+import numpy as np
+import pandas as pd
 import os
 
 PATH_TRAIN = "../data/sentences/sentences.train"
@@ -20,10 +20,11 @@ SPECIAL = {
 
 SENTENCE_LENGTH = 30
 BATCH_SIZE = 64
+SHUFFLE_BUFFER_SIZE = 4096
 VOCAB_SIZE = 20000
 
 
-WORD_EMBEDDINGS = np.array(pd.read_csv('../data/embedding_matrix.csv', header=None).values.tolist()) # <class 'numpy.ndarray'>  
+WORD_EMBEDDINGS = np.array(pd.read_csv('../data/embedding_matrix.csv', header=None).values.tolist()) # <class 'numpy.ndarray'>
 
 
 
@@ -33,6 +34,7 @@ LSTM_HIDDEN_STATE_SIZE_A = 512
 LSTM_HIDDEN_STATE_SIZE_B = 1024
 LSTM_OUTPUT_SIZE = 512
 
-EPOCHS = 1
+EPOCHS = 20
 GRADIENT_CLIPPING_NORM = 5
 
+SUMMARY_FREQ = 500
