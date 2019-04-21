@@ -35,7 +35,7 @@ from task1 import run_task1
 from predict_sentences import conditional_generation
 
 __author__ = 'Nicolas Küchler, Philippe Blatter, Lucas Brunner, Fynn Faber'
-__email__ = 'kunicola@student.ethz.ch, pblatter@student.ethz.ch, brunelu@student.ethz.ch, faberf@student.ethz.ch'
+__email__ = 'kunicola@student.ethz.ch, pblatter@student.ethz.ch, brunnelu@student.ethz.ch, faberf@student.ethz.ch'
 __status__ = 'v9'
 
 
