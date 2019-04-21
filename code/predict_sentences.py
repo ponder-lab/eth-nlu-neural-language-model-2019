@@ -38,13 +38,20 @@ def conditional_generation(word_to_index_table,index_to_word_table, model=None):
     ds_continuation = ds_continuation.batch(BATCH_SIZE)
     predicted_sentence = []
 
+    print(f'model: {model}')
+
+    # sentence in \[batch_size, sentence_length-1]
     for sentence, length in ds_continuation:
+        print(f'sentence shape: {sentence.shape}')
+        print(f'length shape: {length.shape}')
         size_batch = sentence.shape[0]
+
+        # if last fraction is less than the batch size, apply zero padding
         if (size_batch != 64):
             sentence = tf.concat([sentence,tf.zeros((BATCH_SIZE-size_batch,sentence.shape[1]),dtype=tf.int64)],axis=0)
 
-        print(sentence, length)
-        break
+        #print(sentence, length)
+        #break
 
         #make 20 predictions
         for i in range(20):
@@ -95,3 +102,6 @@ def sentences_to_text(index_to_word_table, sentence):
     f = np.vectorize(f)
     #print(sentence)
     return f(sentence)
+
+
+
