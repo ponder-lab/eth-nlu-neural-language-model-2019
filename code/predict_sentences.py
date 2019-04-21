@@ -41,9 +41,11 @@ def conditional_generation(word_to_index_table,index_to_word_table, model=None):
     print(f'model: {model}')
 
     # sentence in \[batch_size, sentence_length-1]
-    for sentence, length in ds_continuation:
+    # length in \[batch_size]
+    for sentence, length in ds_continuation: 
         print(f'sentence shape: {sentence.shape}')
         print(f'length shape: {length.shape}')
+        print(f'length: {length}')
         size_batch = sentence.shape[0]
 
         # if last fraction is less than the batch size, apply zero padding
@@ -55,12 +57,25 @@ def conditional_generation(word_to_index_table,index_to_word_table, model=None):
 
         #make 20 predictions
         for i in range(20):
-            logits, preds = model(sentence)
-            preds = tf.argmax(preds, axis=2)
 
-            #add new word to each input
+            logits = model(sentence) # \in [batch_size, sentence_length-1, vocab_size]            
+            preds = tf.nn.softmax(logits, name=None)
+            preds = tf.argmax(preds, axis=2) # \in [batch_size, sentence_length - 1]
+
+            # both sentence and preds are of type <class 'tensorflow.python.framework.ops.EagerTensor'>
+
+            # add new word to each input sentence
             for i in range(BATCH_SIZE):
-                sentence[i,length[i]]=preds[i,length[i]-1]
+                
+                # print(f'appending a word to sentence: {i}')
+
+                # casting applied as eager tensor doesn't support assigning -> even though I am pretty
+                # sure that there is a cleaner way to do this
+                sentence_np = sentence.numpy()
+                sentence_np[i,length[i]]=preds[i,length[i]-1]
+                sentence = tf.convert_to_tensor(sentence_np, dtype=tf.int64)
+                #sentence[i,length[i]].assign(preds[i,length[i]-1])
+
                 #add one to the length
                 length = tf.math.add(length,[tf.constant(1)])
                 #make sure, we dont predict more than 20 words
@@ -68,21 +83,44 @@ def conditional_generation(word_to_index_table,index_to_word_table, model=None):
 
 
         for i in range(BATCH_SIZE):
-            #slice to gett one sentence
-            curr_sentence = sentence[i,:]
+
+            print(f'cutting sentence: {i}')
+
+            #slice to get one sentence
+            curr_sentence = sentence[i,:].numpy()
+            print(f'current sentence: {curr_sentence}')
 
             #find position of <eos>
-            eos = np.where(curr_sentence==1) #<eos> is 1 hardcoded
-            eos = eos[0]+1 if len(eos)>0 else 20
+            eos = np.where(curr_sentence==1) # <eos> is has index 1 (hardcoded)
+            #print(f'type of eos: {type(eos)}')
+            print(f'eos: {eos}')
+            #print(f'eos[0]: {eos[0]}')
+
+            # if there is an <eos> pad in the sentence, compute the index of the first appearance
+            # if no <eos> was predicted, use 20 as an upper bound
+            idx = (eos[0])[0]+1 if len(eos)>0 else 20
+
+            print(f'idx: {idx}')
+
             #take part to <eos> or at most 20 words
-            curr_sentence = curr_sentence[:min(eos,20)]
+            curr_sentence = curr_sentence[:min(idx,20)]
+
+            print(f'type of curr_sentence[0]: {type(curr_sentence[0])}')
+            curr_sentence = sentences_to_text(index_to_word_table,curr_sentence)
 
             #TODO filter out end of sentence if it contains <eos>
             predicted_sentence.append(curr_sentence)
+
+            
+        
         #only one batch for now
         break
+
     pred = np.array(predicted_sentence)
-    pred = sentences_to_text(index_to_word_table,pred)
+    #pred = tf.convert_to_tensor(pred, dtype=tf.int64)
+    #print(f'pred[0]: {pred[0]}')
+    #print(f'type(pred[0]): {type(pred[0])}')
+    #pred = sentences_to_text(index_to_word_table,pred)
     pd.DataFrame(pred).to_csv(PATH_SUBMISSION+'group35.continuation',sep=' ', header=False , index=False)
     return
 
@@ -98,10 +136,27 @@ def sentences_to_text(index_to_word_table, sentence):
     Returns:
         - sentence where the IDs of the words are replaced with the actual words (strings)
     '''
+
+    ## ====================================================================== 
+    # not sure if this block is necessary..?
+    sentence = tf.cast(sentence, dtype=tf.int64)
+    print(f'type of sentence [0]: {type(sentence[0])}')
+    ## ======================================================================
+
+    '''
     f = (lambda id:index_to_word_table.lookup(id))
     f = np.vectorize(f)
     #print(sentence)
     return f(sentence)
+    '''
+
+    result = []
+    for idx in sentence:
+        result.append(index_to_word_table.lookup(idx).numpy().decode('utf-8'))
+    
+    print(f'result: {result}')
+    return result
+
 
 
 
