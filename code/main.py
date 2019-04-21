@@ -1,5 +1,5 @@
 '''
-Natural Language Understanding 
+Natural Language Understanding
 
 Project 1: Neural Language Model
 Task 1: RNN Language Modelling
@@ -187,14 +187,14 @@ def train(ckpt, manager, model, optimizer, word_to_index_table, index_to_word_ta
     # Build Training and Validation Dataset
     ds_train = build_dataset(PATH_TRAIN, vocab=word_to_index_table)
     ds_train = ds_train.shuffle(SHUFFLE_BUFFER_SIZE)
-    ds_train = ds_train.batch(BATCH_SIZE)
+    ds_train = ds_train.batch(BATCH_SIZE,  drop_remainder=True)
     ds_train = ds_train.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
     # ds_train = ds_train.take(2) # uncomment for demo purposes
 
     ds_valid = build_dataset(PATH_VALID, vocab=word_to_index_table)
     ds_valid = ds_valid.batch(BATCH_SIZE)
     ds_valid = ds_valid.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
-    # ds_valid = ds_valid.take(1)  # uncomment for demo purposes
+    # ds_valid = ds_valid.take(2)  # uncomment for demo purposes
 
 
     # Define Train Metrics
@@ -234,7 +234,7 @@ def train(ckpt, manager, model, optimizer, word_to_index_table, index_to_word_ta
 
 
 
-@tf.function
+# @tf.function # does not work with gpu on cluster
 def train_epoch(model, dataset, optimizer, metrics):
 
     for sentence, labels, mask in dataset:
@@ -282,7 +282,7 @@ def train_epoch(model, dataset, optimizer, metrics):
             metrics['train_perplexity'].reset_states()
 
 
-@tf.function
+# @tf.function # does not work with gpu on cluster
 def validate_epoch(model, dataset, step, metrics):
 
     metrics['valid_loss'].reset_states()
@@ -291,6 +291,14 @@ def validate_epoch(model, dataset, step, metrics):
     metrics['valid_perplexity'].reset_states()
 
     for sentence, labels, mask in dataset:
+
+        # fill the last element of validation set to batch size
+        batch_size = tf.shape(sentence)[0]
+        if  batch_size != BATCH_SIZE:
+            sentence = tf.concat([sentence, tf.zeros((BATCH_SIZE-batch_size, SENTENCE_LENGTH-1), dtype=tf.int64)],axis=0)
+            labels = tf.concat([labels, tf.zeros((BATCH_SIZE-batch_size, SENTENCE_LENGTH-1), dtype=tf.int64)],axis=0)
+            mask = tf.concat([mask, tf.fill([BATCH_SIZE-batch_size, SENTENCE_LENGTH-1], False)],axis=0)
+
         logits = model(sentence)
 
         preds = tf.nn.softmax(logits, name=None)
