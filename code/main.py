@@ -232,6 +232,47 @@ def train(ckpt, manager, model, optimizer, word_to_index_table, index_to_word_ta
             print(f"Saved checkpoint for step {int(ckpt.step)}: {save_path}")
             print(f"Validation Score {validation_score.numpy()}")
 
+@tf.function
+def train_step(model, optimizer, metrics, sentence, labels, mask):
+    with tf.GradientTape() as tape:
+
+        # feed sentence to model to calculate
+        logits = model(sentence)
+        preds = tf.nn.softmax(logits, name=None)
+
+        # mask out padding
+        logits_masked = tf.boolean_mask(logits, mask) # logits_masked \in [number_words_in_batch, VOCAB_SIZE] where number_words_in_batch is number of unpadded words
+        preds_masked = tf.boolean_mask(preds, mask) # logits_masked \in [number_words_in_batch, VOCAB_SIZE]
+        labels_masked = tf.boolean_mask(labels, mask) # labels_masked \in [number_words_in_batch]
+
+        # calculate masked loss
+        loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=labels_masked, logits=logits_masked)
+        loss = tf.math.reduce_mean(loss)
+
+    # apply gradient clipping
+    gradients = tape.gradient(loss, model.trainable_variables)
+    clipped_gradients, _global_norm = tf.clip_by_global_norm(gradients, clip_norm=GRADIENT_CLIPPING_NORM, use_norm=None, name=None)
+    optimizer.apply_gradients(zip(clipped_gradients, model.trainable_variables))
+
+    # calculate metrics
+    metrics['train_loss'].update_state(loss)
+    metrics['train_accuracy'].update_state(y_true=labels_masked, y_pred=logits_masked)
+    metrics['train_top5_accuracy'].update_state(y_true=labels_masked, y_pred=logits_masked)
+    metrics['train_perplexity'].update_state(y_true=labels_masked, y_pred=preds_masked)
+
+    # log metrics to summary every summary_freq steps (aggregated over the last summary_freq steps)
+    if tf.equal(optimizer.iterations % SUMMARY_FREQ, 0):
+        tf.summary.scalar('train_loss', metrics['train_loss'].result(), step=optimizer.iterations)
+        metrics['train_loss'].reset_states()
+
+        tf.summary.scalar('train_accuracy', metrics['train_accuracy'].result(), step=optimizer.iterations)
+        metrics['train_accuracy'].reset_states()
+
+        tf.summary.scalar('train_top5_accuracy', metrics['train_top5_accuracy'].result(), step=optimizer.iterations)
+        metrics['train_top5_accuracy'].reset_states()
+
+        tf.summary.scalar('train_perplexity', metrics['train_perplexity'].result(), step=optimizer.iterations)
+        metrics['train_perplexity'].reset_states()
 
 
 # @tf.function # does not work with gpu on cluster
@@ -240,46 +281,8 @@ def train_epoch(model, dataset, optimizer, metrics):
     for sentence, labels, mask in dataset:
 
         # sentence, labels, mask \in [batch_size, sentence_length-1]
+        train_step(model, optimizer, metrics, sentence, labels, mask)
 
-        with tf.GradientTape() as tape:
-
-            # feed sentence to model to calculate
-            logits = model(sentence)
-            preds = tf.nn.softmax(logits, name=None)
-
-            # mask out padding
-            logits_masked = tf.boolean_mask(logits, mask) # logits_masked \in [number_words_in_batch, VOCAB_SIZE] where number_words_in_batch is number of unpadded words
-            preds_masked = tf.boolean_mask(preds, mask) # logits_masked \in [number_words_in_batch, VOCAB_SIZE]
-            labels_masked = tf.boolean_mask(labels, mask) # labels_masked \in [number_words_in_batch]
-
-            # calculate masked loss
-            loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=labels_masked, logits=logits_masked)
-            loss = tf.math.reduce_mean(loss)
-
-        # apply gradient clipping
-        gradients = tape.gradient(loss, model.trainable_variables)
-        clipped_gradients, _global_norm = tf.clip_by_global_norm(gradients, clip_norm=GRADIENT_CLIPPING_NORM, use_norm=None, name=None)
-        optimizer.apply_gradients(zip(clipped_gradients, model.trainable_variables))
-
-        # calculate metrics
-        metrics['train_loss'].update_state(loss)
-        metrics['train_accuracy'].update_state(y_true=labels_masked, y_pred=logits_masked)
-        metrics['train_top5_accuracy'].update_state(y_true=labels_masked, y_pred=logits_masked)
-        metrics['train_perplexity'].update_state(y_true=labels_masked, y_pred=preds_masked)
-
-        # log metrics to summary every summary_freq steps (aggregated over the last summary_freq steps)
-        if tf.equal(optimizer.iterations % SUMMARY_FREQ, 0):
-            tf.summary.scalar('train_loss', metrics['train_loss'].result(), step=optimizer.iterations)
-            metrics['train_loss'].reset_states()
-
-            tf.summary.scalar('train_accuracy', metrics['train_accuracy'].result(), step=optimizer.iterations)
-            metrics['train_accuracy'].reset_states()
-
-            tf.summary.scalar('train_top5_accuracy', metrics['train_top5_accuracy'].result(), step=optimizer.iterations)
-            metrics['train_top5_accuracy'].reset_states()
-
-            tf.summary.scalar('train_perplexity', metrics['train_perplexity'].result(), step=optimizer.iterations)
-            metrics['train_perplexity'].reset_states()
 
 
 # @tf.function # does not work with gpu on cluster

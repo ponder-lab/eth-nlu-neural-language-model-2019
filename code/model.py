@@ -128,7 +128,7 @@ class LanguageModel(tf.keras.Model):
             # dimensions: [batch, sentence length, embedding size]
             # selects a slice of the cube -> every embedding, every sentence in the batch, but always
             # one certain position
-            word_embedding_batch =  tf.identity(sentence_embedding_batch[:, pos, :], name=f"word_{pos}")
+            word_embedding_batch =  sentence_embedding_batch[:, pos, :]
 
             # output \in [batch_size, hidden_state_size]
             # state  \in [batch_size, hidden_state_size]
@@ -167,7 +167,6 @@ class Perplexity(tf.metrics.Metric):
         # as part of required index (think more efficient than creating new every time)
         self.range = tf.range((SENTENCE_LENGTH-1)*BATCH_SIZE, dtype=tf.int64)
 
-
     def update_state(self, y_true, y_pred, sample_weight=None):
         '''
 
@@ -197,7 +196,6 @@ class Perplexity(tf.metrics.Metric):
         sum_log_probs = tf.reduce_sum(log_probs) # sum_log_probs \in scalar
 
         self.sum.assign_add(tf.cast(sum_log_probs, dtype=tf.float32))
-
 
     def result(self):
         '''
