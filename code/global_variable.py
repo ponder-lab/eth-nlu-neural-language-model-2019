@@ -10,7 +10,8 @@ PATH_TEST = "../data/sentences/sentences_test.txt"
 PATH_VOCAB = "../data/vocab.txt"
 PATH_SUBMISSION = "../data/submission/"
 PATH_EMBEDDING = "../data/wordembeddings-dim100.word2vec"
-PATH_LOG = 'logs'
+PATH_LOG = '../logs'
+PATH_CHECKPOINTS = '../tf_ckpts'
 
 SPECIAL = {
     "bos" : "<bos>",

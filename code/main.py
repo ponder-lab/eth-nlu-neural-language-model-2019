@@ -117,8 +117,9 @@ def main():
     ckpt = tf.train.Checkpoint(step=tf.Variable(1), optimizer=optimizer, net=model)
 
     # checkpoint manager
-    manager = tf.train.CheckpointManager(ckpt, './tf_ckpts'+string_suffix, max_to_keep=5)
+    manager = tf.train.CheckpointManager(ckpt, PATH_CHECKPOINTS + string_suffix, max_to_keep=5)
     ckpt.restore(manager.latest_checkpoint)
+
     if manager.latest_checkpoint: # TODO maybe add option to specify from which checkpoint to restore
         print(f'Restored from {manager.latest_checkpoint}')
     else:
@@ -175,26 +176,22 @@ def train(ckpt, manager, model, optimizer, word_to_index_table, index_to_word_ta
 
     # define time and summary writers
     current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    train_log_dir = PATH_LOG + suffix + '/' + current_time + '/train'
-    valid_log_dir = PATH_LOG + suffix + '/' + current_time + '/valid'
+    log_dir = PATH_LOG + suffix + '/' + current_time
 
-    print(f'writing train summaries to: {train_log_dir}')
-    print(f'writing valid summaries to: {valid_log_dir}')
-    train_summary_writer = tf.summary.create_file_writer(train_log_dir)
-    valid_summary_writer = tf.summary.create_file_writer(valid_log_dir)
-
+    print(f'writing summaries to: {log_dir}')
+    summary_writer = tf.summary.create_file_writer(log_dir)
 
     # Build Training and Validation Dataset
     ds_train = build_dataset(PATH_TRAIN, vocab=word_to_index_table)
     ds_train = ds_train.shuffle(SHUFFLE_BUFFER_SIZE)
     ds_train = ds_train.batch(BATCH_SIZE,  drop_remainder=True)
     ds_train = ds_train.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
-    # ds_train = ds_train.take(2) # uncomment for demo purposes
+    #ds_train = ds_train.take(2) # uncomment for demo purposes
 
     ds_valid = build_dataset(PATH_VALID, vocab=word_to_index_table)
     ds_valid = ds_valid.batch(BATCH_SIZE)
     ds_valid = ds_valid.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
-    # ds_valid = ds_valid.take(2)  # uncomment for demo purposes
+    #ds_valid = ds_valid.take(2)  # uncomment for demo purposes
 
 
     # Define Train Metrics
@@ -214,15 +211,13 @@ def train(ckpt, manager, model, optimizer, word_to_index_table, index_to_word_ta
     # Training Loop
     best_validation_score = 0
     for epoch in range(EPOCHS):
-
-        print(f"Start Training of Epoch {epoch}")
-        with train_summary_writer.as_default():
+        with summary_writer.as_default():
+            print(f"Start Training of Epoch {epoch}")
             for sentence, labels, mask in ds_train:
                 # sentence, labels, mask \in [batch_size, sentence_length-1]
-                train_step(model=model, optimizer=optimizer, metrics=metrics_train, sentence=sentence, labels=labels, mask=mask)
+                train_step(model=model, optimizer=optimizer, metrics=metrics_train, sentence=sentence, labels=labels, mask=mask, id2word=index_to_word_table)
 
-        print(f"Start Validation of Epoch {epoch}")
-        with valid_summary_writer.as_default():
+            print(f"Start Validation of Epoch {epoch}")
 
             metrics_valid['valid_loss'].reset_states()
             metrics_valid['valid_accuracy'].reset_states()
@@ -230,17 +225,16 @@ def train(ckpt, manager, model, optimizer, word_to_index_table, index_to_word_ta
             metrics_valid['valid_perplexity'].reset_states()
 
             for sentence, labels, mask in ds_valid:
-                valid_step(model=model, step=optimizer.iterations, metrics=metrics_valid, sentence=sentence, labels=labels, mask=mask)
+                valid_step(model=model, step=optimizer.iterations, metrics=metrics_valid, sentence=sentence, labels=labels, mask=mask, id2word=index_to_word_table)
 
             # log metrics after complete pass through validation set
-            tf.summary.scalar('valid_loss', metrics_valid['valid_loss'].result(), step=optimizer.iterations)
-            tf.summary.scalar('valid_accuracy', metrics_valid['valid_accuracy'].result(), step=optimizer.iterations)
-            tf.summary.scalar('valid_top5_accuracy', metrics_valid['valid_top5_accuracy'].result(), step=optimizer.iterations)
-            tf.summary.scalar('valid_perplexity', metrics_valid['valid_perplexity'].result(), step=optimizer.iterations)
+            tf.summary.scalar('valid/loss', metrics_valid['valid_loss'].result(), step=optimizer.iterations)
+            tf.summary.scalar('valid/accuracy', metrics_valid['valid_accuracy'].result(), step=optimizer.iterations)
+            tf.summary.scalar('valid/top5_accuracy', metrics_valid['valid_top5_accuracy'].result(), step=optimizer.iterations)
+            tf.summary.scalar('valid/perplexity', metrics_valid['valid_perplexity'].result(), step=optimizer.iterations)
 
             # TODO define metric from which to choose if we want to save checkpoint
             validation_score = metrics_valid['valid_accuracy'].result()
-
 
         ckpt.step.assign_add(1)
 
@@ -252,7 +246,7 @@ def train(ckpt, manager, model, optimizer, word_to_index_table, index_to_word_ta
             print(f"Validation Score {validation_score.numpy()}")
 
 @tf.function
-def train_step(model, optimizer, metrics, sentence, labels, mask):
+def train_step(model, optimizer, metrics, sentence, labels, mask, id2word):
     with tf.GradientTape() as tape:
 
         # feed sentence to model to calculate
@@ -281,21 +275,44 @@ def train_step(model, optimizer, metrics, sentence, labels, mask):
 
     # log metrics to summary every summary_freq steps (aggregated over the last summary_freq steps)
     if tf.equal(optimizer.iterations % SUMMARY_FREQ, 0):
-        tf.summary.scalar('train_loss', metrics['train_loss'].result(), step=optimizer.iterations)
+        #print(f"output summaries  = {optimizer.iterations}")
+        tf.summary.scalar('train/loss', metrics['train_loss'].result(), step=optimizer.iterations)
         metrics['train_loss'].reset_states()
 
-        tf.summary.scalar('train_accuracy', metrics['train_accuracy'].result(), step=optimizer.iterations)
+        tf.summary.scalar('train/accuracy', metrics['train_accuracy'].result(), step=optimizer.iterations)
         metrics['train_accuracy'].reset_states()
 
-        tf.summary.scalar('train_top5_accuracy', metrics['train_top5_accuracy'].result(), step=optimizer.iterations)
+        tf.summary.scalar('train/top5_accuracy', metrics['train_top5_accuracy'].result(), step=optimizer.iterations)
         metrics['train_top5_accuracy'].reset_states()
 
-        tf.summary.scalar('train_perplexity', metrics['train_perplexity'].result(), step=optimizer.iterations)
+        tf.summary.scalar('train/perplexity', metrics['train_perplexity'].result(), step=optimizer.iterations)
         metrics['train_perplexity'].reset_states()
+
+        predicted_words = tf.math.argmax(logits, axis=2)
+
+        pred_batch_text = format_to_text(words=predicted_words, mask=mask, id2word=id2word)
+        label_batch_text = format_to_text(words=labels, mask=mask, id2word=id2word)
+        stacked_text = tf.stack([label_batch_text, pred_batch_text], axis=1)
+        tf.summary.text('train/text_gt_pred', stacked_text, step=optimizer.iterations)
+
+
+
+def format_to_text(words, mask, id2word):
+
+    # convert from id to words
+    words = id2word.lookup(words)
+
+    # mask out padding
+    words = tf.where(mask, words, tf.cast(tf.fill([BATCH_SIZE, SENTENCE_LENGTH-1], ""), dtype=tf.string))
+
+    # join sentence
+    sentence = tf.strings.reduce_join(inputs=words, axis=1, separator=" ") # \in [batch_size]
+
+    return sentence
 
 
 @tf.function
-def valid_step(model, step, metrics, sentence, labels, mask):
+def valid_step(model, step, metrics, sentence, labels, mask, id2word):
     # fill the last element of validation set to batch size
     batch_size = tf.shape(sentence)[0]
     if  batch_size != BATCH_SIZE:
@@ -321,6 +338,13 @@ def valid_step(model, step, metrics, sentence, labels, mask):
     metrics['valid_accuracy'].update_state(y_true=labels_masked, y_pred=logits_masked)
     metrics['valid_top5_accuracy'].update_state(y_true=labels_masked, y_pred=logits_masked)
     metrics['valid_perplexity'].update_state(y_true=labels_masked, y_pred=preds_masked)
+
+    predicted_words = tf.math.argmax(logits, axis=2)
+
+    pred_batch_text = format_to_text(words=predicted_words, mask=mask, id2word=id2word)
+    label_batch_text = format_to_text(words=labels, mask=mask, id2word=id2word)
+    stacked_text = tf.stack([label_batch_text, pred_batch_text], axis=1)
+    tf.summary.text('valid/text_gt_pred', stacked_text, step=step)
 
 
 
