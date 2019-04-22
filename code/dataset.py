@@ -22,8 +22,8 @@ def _build_base_dataset(filename, vocab):
     # filter out sentences longer than 30
     dataset = dataset.filter(lambda sentence: tf.shape(sentence)[0] <= SENTENCE_LENGTH)
 
-    # pad all sentences to length 30
-    dataset = dataset.map(lambda sentence: (tf.pad(sentence, [[0,SENTENCE_LENGTH - tf.shape(sentence)[0]]], mode='CONSTANT', constant_values=SPECIAL['pad']), tf.shape(sentence)[0]),
+    # pad all sentences to length 30 and add length of sentence excluding <EOS>
+    dataset = dataset.map(lambda sentence: (tf.pad(sentence, [[0,SENTENCE_LENGTH - tf.shape(sentence)[0]]], mode='CONSTANT', constant_values=SPECIAL['pad']), tf.shape(sentence)[0]-1),
                             num_parallel_calls=tf.data.experimental.AUTOTUNE)
 
     # map words to id

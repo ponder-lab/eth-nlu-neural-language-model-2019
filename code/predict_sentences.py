@@ -43,17 +43,14 @@ def conditional_generation(word_to_index_table,index_to_word_table, model=None):
     # sentence in \[batch_size, sentence_length-1]
     # length in \[batch_size]
     for sentence, length in ds_continuation: 
-        print(f'sentence shape: {sentence.shape}')
-        print(f'length shape: {length.shape}')
-        print(f'length: {length}')
+        #print(f'sentence shape: {sentence.shape}')
+        #print(f'length shape: {length.shape}')
+        #print(f'length: {length}')
         size_batch = sentence.shape[0]
 
         # if last fraction is less than the batch size, apply zero padding
         if (size_batch != 64):
             sentence = tf.concat([sentence,tf.zeros((BATCH_SIZE-size_batch,sentence.shape[1]),dtype=tf.int64)],axis=0)
-
-        #print(sentence, length)
-        #break
 
         #make 20 predictions
         for i in range(20):
@@ -76,46 +73,46 @@ def conditional_generation(word_to_index_table,index_to_word_table, model=None):
                 sentence = tf.convert_to_tensor(sentence_np, dtype=tf.int64)
                 #sentence[i,length[i]].assign(preds[i,length[i]-1])
 
-                #add one to the length
-                length = tf.math.add(length,[tf.constant(1)])
-                #make sure, we dont predict more than 20 words
-                length = tf.map_fn((lambda x:21 if x>21 else x),length)
+            #add one to the length
+            length = tf.math.add(length,[tf.constant(1)])
+            #make sure, we dont predict more than 20 words
+            length = tf.map_fn((lambda x:21 if x>21 else x),length)
 
-
+        #return
         for i in range(BATCH_SIZE):
 
-            print(f'cutting sentence: {i}')
+            #print(f'cutting sentence: {i}')
 
             #slice to get one sentence
             curr_sentence = sentence[i,:].numpy()
-            print(f'current sentence: {curr_sentence}')
+            #print(f'current sentence: {curr_sentence}')
 
             #find position of <eos>
             eos = np.where(curr_sentence==1) # <eos> is has index 1 (hardcoded)
             #print(f'type of eos: {type(eos)}')
-            print(f'eos: {eos}')
+            #print(f'eos: {eos}')
             #print(f'eos[0]: {eos[0]}')
 
             # if there is an <eos> pad in the sentence, compute the index of the first appearance
             # if no <eos> was predicted, use 20 as an upper bound
-            idx = (eos[0])[0]+1 if len(eos)>0 else 20
+            idx = (eos[0])[0]+1 if len(eos[0])>0 else 21
 
-            print(f'idx: {idx}')
+            #print(f'idx: {idx}')
 
             #take part to <eos> or at most 20 words
-            curr_sentence = curr_sentence[:min(idx,20)]
+            curr_sentence = curr_sentence[1:idx]
 
-            print(f'type of curr_sentence[0]: {type(curr_sentence[0])}')
+            #print(f'type of curr_sentence[0]: {type(curr_sentence[0])}')
             curr_sentence = sentences_to_text(index_to_word_table,curr_sentence)
 
             #TODO filter out end of sentence if it contains <eos>
             predicted_sentence.append(curr_sentence)
-
-            
+             
         
         #only one batch for now
-        break
-
+        #break
+    #print(predicted_sentence)
+    #print(len(predicted_sentence[0]))
     pred = np.array(predicted_sentence)
     #pred = tf.convert_to_tensor(pred, dtype=tf.int64)
     #print(f'pred[0]: {pred[0]}')
@@ -140,7 +137,7 @@ def sentences_to_text(index_to_word_table, sentence):
     ## ====================================================================== 
     # not sure if this block is necessary..?
     sentence = tf.cast(sentence, dtype=tf.int64)
-    print(f'type of sentence [0]: {type(sentence[0])}')
+    #print(f'type of sentence [0]: {type(sentence[0])}')
     ## ======================================================================
 
     '''
@@ -154,7 +151,7 @@ def sentences_to_text(index_to_word_table, sentence):
     for idx in sentence:
         result.append(index_to_word_table.lookup(idx).numpy().decode('utf-8'))
     
-    print(f'result: {result}')
+    #print(f'result: {result}')
     return result
 
 
