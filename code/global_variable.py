@@ -20,12 +20,11 @@ SPECIAL = {
 
 SENTENCE_LENGTH = 30
 BATCH_SIZE = 64
-SHUFFLE_BUFFER_SIZE = 4096
+SHUFFLE_BUFFER_SIZE = 512
 VOCAB_SIZE = 20000
 
 
 WORD_EMBEDDINGS = np.array(pd.read_csv('../data/embedding_matrix.csv', header=None).values.tolist()) # <class 'numpy.ndarray'>
-
 
 
 # TODO load pretrained word embeddings and check that it's working in combination with tf.function
@@ -34,7 +33,7 @@ LSTM_HIDDEN_STATE_SIZE_A = 512
 LSTM_HIDDEN_STATE_SIZE_B = 1024
 LSTM_OUTPUT_SIZE = 512
 
-EPOCHS = 20
+EPOCHS = 5
 GRADIENT_CLIPPING_NORM = 5
 
-SUMMARY_FREQ = 500
+SUMMARY_FREQ = 200

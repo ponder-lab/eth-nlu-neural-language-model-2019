@@ -128,7 +128,7 @@ class LanguageModel(tf.keras.Model):
             # dimensions: [batch, sentence length, embedding size]
             # selects a slice of the cube -> every embedding, every sentence in the batch, but always
             # one certain position
-            word_embedding_batch =  tf.identity(sentence_embedding_batch[:, pos, :], name=f"word_{pos}")
+            word_embedding_batch =  sentence_embedding_batch[:, pos, :]
 
             # output \in [batch_size, hidden_state_size]
             # state  \in [batch_size, hidden_state_size]
@@ -160,13 +160,12 @@ class Perplexity(tf.metrics.Metric):
 
     def __init__(self, name='perplexity', **kwargs):
         super(Perplexity, self).__init__(name=name, **kwargs)
-        self.sum = self.add_weight(dtype=tf.float32,name='perp_sum_log_probs', initializer='zeros')
+        self.sum = self.add_weight(dtype=tf.float64,name='perp_sum_log_probs', initializer='zeros')
         self.n = self.add_weight(dtype=tf.int32,name='perp_n', initializer='zeros')
 
         # pre define constant tensor [0,1,2,..., ] which is used at every update_state
         # as part of required index (think more efficient than creating new every time)
         self.range = tf.range((SENTENCE_LENGTH-1)*BATCH_SIZE, dtype=tf.int64)
-
 
     def update_state(self, y_true, y_pred, sample_weight=None):
         '''
@@ -182,7 +181,6 @@ class Perplexity(tf.metrics.Metric):
         n = tf.shape(y_pred)[0]
         self.n.assign_add(n)
 
-
         # use only required slice of constant [0,1,2,..., n-1]
         range = self.range[:n]
 
@@ -196,8 +194,7 @@ class Perplexity(tf.metrics.Metric):
 
         sum_log_probs = tf.reduce_sum(log_probs) # sum_log_probs \in scalar
 
-        self.sum.assign_add(tf.cast(sum_log_probs, dtype=tf.float32))
-
+        self.sum.assign_add(tf.cast(sum_log_probs, dtype=tf.float64))
 
     def result(self):
         '''
@@ -212,6 +209,6 @@ class Perplexity(tf.metrics.Metric):
         #if tf.equal(self.n,tf.constant(0)):
         #    return tf.constant(-1)
 
-        perp = tf.math.pow(2.0, -1/tf.cast(self.n, dtype=tf.float32) * self.sum)
+        perp = tf.math.pow(tf.constant(2, dtype=tf.float64), -1/tf.cast(self.n, dtype=tf.float64) * self.sum)
 
         return perp

@@ -1,5 +1,5 @@
 '''
-Natural Language Understanding 
+Natural Language Understanding
 
 Project 1: Neural Language Model
 Task 1: RNN Language Modelling
@@ -187,14 +187,14 @@ def train(ckpt, manager, model, optimizer, word_to_index_table, index_to_word_ta
     # Build Training and Validation Dataset
     ds_train = build_dataset(PATH_TRAIN, vocab=word_to_index_table)
     ds_train = ds_train.shuffle(SHUFFLE_BUFFER_SIZE)
-    ds_train = ds_train.batch(BATCH_SIZE)
+    ds_train = ds_train.batch(BATCH_SIZE,  drop_remainder=True)
     ds_train = ds_train.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
     # ds_train = ds_train.take(2) # uncomment for demo purposes
 
     ds_valid = build_dataset(PATH_VALID, vocab=word_to_index_table)
     ds_valid = ds_valid.batch(BATCH_SIZE)
     ds_valid = ds_valid.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
-    # ds_valid = ds_valid.take(1)  # uncomment for demo purposes
+    # ds_valid = ds_valid.take(2)  # uncomment for demo purposes
 
 
     # Define Train Metrics
@@ -215,13 +215,32 @@ def train(ckpt, manager, model, optimizer, word_to_index_table, index_to_word_ta
     best_validation_score = 0
     for epoch in range(EPOCHS):
 
+        print(f"Start Training of Epoch {epoch}")
         with train_summary_writer.as_default():
-            print(f"Start Training of Epoch {epoch}")
-            train_epoch(model=model, dataset=ds_train, optimizer=optimizer, metrics=metrics_train)
+            for sentence, labels, mask in ds_train:
+                # sentence, labels, mask \in [batch_size, sentence_length-1]
+                train_step(model=model, optimizer=optimizer, metrics=metrics_train, sentence=sentence, labels=labels, mask=mask)
 
+        print(f"Start Validation of Epoch {epoch}")
         with valid_summary_writer.as_default():
-            print(f"Start Validation of Epoch {epoch}")
-            validation_score = validate_epoch(model=model, dataset=ds_valid, step=optimizer.iterations, metrics=metrics_valid)
+
+            metrics_valid['valid_loss'].reset_states()
+            metrics_valid['valid_accuracy'].reset_states()
+            metrics_valid['valid_top5_accuracy'].reset_states()
+            metrics_valid['valid_perplexity'].reset_states()
+
+            for sentence, labels, mask in ds_valid:
+                valid_step(model=model, step=optimizer.iterations, metrics=metrics_valid, sentence=sentence, labels=labels, mask=mask)
+
+            # log metrics after complete pass through validation set
+            tf.summary.scalar('valid_loss', metrics_valid['valid_loss'].result(), step=optimizer.iterations)
+            tf.summary.scalar('valid_accuracy', metrics_valid['valid_accuracy'].result(), step=optimizer.iterations)
+            tf.summary.scalar('valid_top5_accuracy', metrics_valid['valid_top5_accuracy'].result(), step=optimizer.iterations)
+            tf.summary.scalar('valid_perplexity', metrics_valid['valid_perplexity'].result(), step=optimizer.iterations)
+
+            # TODO define metric from which to choose if we want to save checkpoint
+            validation_score = metrics_valid['valid_accuracy'].result()
+
 
         ckpt.step.assign_add(1)
 
@@ -232,92 +251,78 @@ def train(ckpt, manager, model, optimizer, word_to_index_table, index_to_word_ta
             print(f"Saved checkpoint for step {int(ckpt.step)}: {save_path}")
             print(f"Validation Score {validation_score.numpy()}")
 
-
-
 @tf.function
-def train_epoch(model, dataset, optimizer, metrics):
+def train_step(model, optimizer, metrics, sentence, labels, mask):
+    with tf.GradientTape() as tape:
 
-    for sentence, labels, mask in dataset:
-
-        # sentence, labels, mask \in [batch_size, sentence_length-1]
-
-        with tf.GradientTape() as tape:
-
-            # feed sentence to model to calculate
-            logits = model(sentence)
-            preds = tf.nn.softmax(logits, name=None)
-
-            # mask out padding
-            logits_masked = tf.boolean_mask(logits, mask) # logits_masked \in [number_words_in_batch, VOCAB_SIZE] where number_words_in_batch is number of unpadded words
-            preds_masked = tf.boolean_mask(preds, mask) # logits_masked \in [number_words_in_batch, VOCAB_SIZE]
-            labels_masked = tf.boolean_mask(labels, mask) # labels_masked \in [number_words_in_batch]
-
-            # calculate masked loss
-            loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=labels_masked, logits=logits_masked)
-            loss = tf.math.reduce_mean(loss)
-
-        # apply gradient clipping
-        gradients = tape.gradient(loss, model.trainable_variables)
-        clipped_gradients, _global_norm = tf.clip_by_global_norm(gradients, clip_norm=GRADIENT_CLIPPING_NORM, use_norm=None, name=None)
-        optimizer.apply_gradients(zip(clipped_gradients, model.trainable_variables))
-
-        # calculate metrics
-        metrics['train_loss'].update_state(loss)
-        metrics['train_accuracy'].update_state(y_true=labels_masked, y_pred=logits_masked)
-        metrics['train_top5_accuracy'].update_state(y_true=labels_masked, y_pred=logits_masked)
-        metrics['train_perplexity'].update_state(y_true=labels_masked, y_pred=preds_masked)
-
-        # log metrics to summary every summary_freq steps (aggregated over the last summary_freq steps)
-        if tf.equal(optimizer.iterations % SUMMARY_FREQ, 0):
-            tf.summary.scalar('train_loss', metrics['train_loss'].result(), step=optimizer.iterations)
-            metrics['train_loss'].reset_states()
-
-            tf.summary.scalar('train_accuracy', metrics['train_accuracy'].result(), step=optimizer.iterations)
-            metrics['train_accuracy'].reset_states()
-
-            tf.summary.scalar('train_top5_accuracy', metrics['train_top5_accuracy'].result(), step=optimizer.iterations)
-            metrics['train_top5_accuracy'].reset_states()
-
-            tf.summary.scalar('train_perplexity', metrics['train_perplexity'].result(), step=optimizer.iterations)
-            metrics['train_perplexity'].reset_states()
-
-
-@tf.function
-def validate_epoch(model, dataset, step, metrics):
-
-    metrics['valid_loss'].reset_states()
-    metrics['valid_accuracy'].reset_states()
-    metrics['valid_top5_accuracy'].reset_states()
-    metrics['valid_perplexity'].reset_states()
-
-    for sentence, labels, mask in dataset:
+        # feed sentence to model to calculate
         logits = model(sentence)
-
-        preds = tf.nn.softmax(logits, name=None)
+        preds = tf.nn.softmax(logits)
 
         # mask out padding
-        logits_masked = tf.boolean_mask(logits, mask)
-        preds_masked = tf.boolean_mask(preds, mask)
-        labels_masked = tf.boolean_mask(labels, mask)
+        logits_masked = tf.boolean_mask(logits, mask) # logits_masked \in [number_words_in_batch, VOCAB_SIZE] where number_words_in_batch is number of unpadded words
+        preds_masked = tf.boolean_mask(preds, mask) # logits_masked \in [number_words_in_batch, VOCAB_SIZE]
+        labels_masked = tf.boolean_mask(labels, mask) # labels_masked \in [number_words_in_batch]
 
         # calculate masked loss
         loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=labels_masked, logits=logits_masked)
         loss = tf.math.reduce_mean(loss)
 
-        # update metrics
-        metrics['valid_loss'].update_state(loss)
-        metrics['valid_accuracy'].update_state(y_true=labels_masked, y_pred=logits_masked)
-        metrics['valid_top5_accuracy'].update_state(y_true=labels_masked, y_pred=logits_masked)
-        metrics['valid_perplexity'].update_state(y_true=labels_masked, y_pred=preds_masked)
+    # apply gradient clipping
+    gradients = tape.gradient(loss, model.trainable_variables)
+    clipped_gradients, _global_norm = tf.clip_by_global_norm(gradients, clip_norm=GRADIENT_CLIPPING_NORM, use_norm=None, name=None)
+    optimizer.apply_gradients(zip(clipped_gradients, model.trainable_variables))
 
-    # log metrics after complete pass through validation set
-    tf.summary.scalar('valid_loss', metrics['valid_loss'].result(), step=step)
-    tf.summary.scalar('valid_accuracy', metrics['valid_accuracy'].result(), step=step)
-    tf.summary.scalar('valid_top5_accuracy', metrics['valid_top5_accuracy'].result(), step=step)
-    tf.summary.scalar('valid_perplexity', metrics['valid_perplexity'].result(), step=step)
+    # calculate metrics
+    metrics['train_loss'].update_state(loss)
+    metrics['train_accuracy'].update_state(y_true=labels_masked, y_pred=logits_masked)
+    metrics['train_top5_accuracy'].update_state(y_true=labels_masked, y_pred=logits_masked)
+    metrics['train_perplexity'].update_state(y_true=labels_masked, y_pred=preds_masked)
 
-    # TODO define metric from which to choose if we want to save checkpoint
-    return metrics['valid_accuracy'].result()
+    # log metrics to summary every summary_freq steps (aggregated over the last summary_freq steps)
+    if tf.equal(optimizer.iterations % SUMMARY_FREQ, 0):
+        tf.summary.scalar('train_loss', metrics['train_loss'].result(), step=optimizer.iterations)
+        metrics['train_loss'].reset_states()
+
+        tf.summary.scalar('train_accuracy', metrics['train_accuracy'].result(), step=optimizer.iterations)
+        metrics['train_accuracy'].reset_states()
+
+        tf.summary.scalar('train_top5_accuracy', metrics['train_top5_accuracy'].result(), step=optimizer.iterations)
+        metrics['train_top5_accuracy'].reset_states()
+
+        tf.summary.scalar('train_perplexity', metrics['train_perplexity'].result(), step=optimizer.iterations)
+        metrics['train_perplexity'].reset_states()
+
+
+@tf.function
+def valid_step(model, step, metrics, sentence, labels, mask):
+    # fill the last element of validation set to batch size
+    batch_size = tf.shape(sentence)[0]
+    if  batch_size != BATCH_SIZE:
+        sentence = tf.concat([sentence, tf.zeros((BATCH_SIZE-batch_size, SENTENCE_LENGTH-1), dtype=tf.int64)],axis=0)
+        labels = tf.concat([labels, tf.zeros((BATCH_SIZE-batch_size, SENTENCE_LENGTH-1), dtype=tf.int64)],axis=0)
+        mask = tf.concat([mask, tf.fill([BATCH_SIZE-batch_size, SENTENCE_LENGTH-1], False)],axis=0)
+
+    logits = model(sentence)
+
+    preds = tf.nn.softmax(logits)
+
+    # mask out padding
+    logits_masked = tf.boolean_mask(logits, mask)
+    preds_masked = tf.boolean_mask(preds, mask)
+    labels_masked = tf.boolean_mask(labels, mask)
+
+    # calculate masked loss
+    loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=labels_masked, logits=logits_masked)
+    loss = tf.math.reduce_mean(loss)
+
+    # update metrics
+    metrics['valid_loss'].update_state(loss)
+    metrics['valid_accuracy'].update_state(y_true=labels_masked, y_pred=logits_masked)
+    metrics['valid_top5_accuracy'].update_state(y_true=labels_masked, y_pred=logits_masked)
+    metrics['valid_perplexity'].update_state(y_true=labels_masked, y_pred=preds_masked)
+
+
 
 if __name__ == "__main__":
     main()
