@@ -1,21 +1,24 @@
 import tensorflow as tf
 import pandas as pd
 
+from global_variable import *
+from perplexity import Perplexity, perp
+from dataset import build_dataset
 
 def evaluate(model, word2id, id2word, step, path_submission):
 
     # Create Dataset
     ds_test = build_dataset(PATH_TEST, word2id)
-    ds_test = dataset.batch(BATCH_SIZE)
+    ds_test = ds_test.batch(BATCH_SIZE)
+    # ds_test = ds_test.take(2)  # uncomment for demo purposes
 
     # Run Validation
-    accuracy, perp = validate(model=model, dataset=ds_test, id2word=id2_word, step=step)
+    accuracy, perp = validate(model=model, dataset=ds_test, id2word=id2word, step=step)
 
     # Write Submission File
-    if path_submission is not None:
-        perp = tf.concat(perp, axis=0)
-        print(f"Writing Submission: {path_submission}")
-        pd.DataFrame(perp.numpy()).to_csv(path_submission, sep=' ', header=False , index=False)
+    perp = tf.concat(perp, axis=0)
+    print(f"Writing Submission: {path_submission}")
+    pd.DataFrame(perp.numpy()).to_csv(path_submission, sep=' ', header=False , index=False, float_format='%.3f')
 
 
 def validate(model, dataset, id2word, step):
@@ -26,20 +29,22 @@ def validate(model, dataset, id2word, step):
     metrics['accuracy'] = tf.keras.metrics.SparseCategoricalAccuracy(name='valid_accuracy')
     metrics['top5_accuracy'] = tf.metrics.SparseTopKCategoricalAccuracy(k=5, name="valid_top5_accuracy")
     metrics['total_perplexity'] = Perplexity(name="valid_total_perplexity")
-    metrics['sentence_perplexity'] = Perplexity(name="valid_sentence_perplexity")
 
     perp = []
-
+    text = []
+    text.append(tf.constant(['**Ground Truth**', '**Sentence Perplexity**', '**Prediction (argmax)**'], shape=[1,3]))
     # loop over dataset in batches
     for sentence, labels, mask in dataset:
-        perplexities_batch = evaluate_step(sentence=sentence, labels=labels, mask=mask, id2word=id2word, metrics=metrics)
+        perplexities_batch, text_batch = validate_step(sentence=sentence, labels=labels, mask=mask, model=model, step=step, id2word=id2word, metrics=metrics)
         perp.append(perplexities_batch)
+        text.append(text_batch)
 
     # log metrics after complete pass through dataset
     tf.summary.scalar('valid/loss', metrics['loss'].result(), step=step)
     tf.summary.scalar('valid/accuracy', metrics['accuracy'].result(), step=step)
     tf.summary.scalar('valid/top5_accuracy', metrics['top5_accuracy'].result(), step=step)
-    tf.summary.scalar('valid/total_perplexity', metrics_valid['total_perplexity'].result(), step=step)
+    tf.summary.scalar('valid/total_perplexity', metrics['total_perplexity'].result(), step=step)
+    tf.summary.text('valid/text_gt_perp_pred', tf.concat(text, axis=0), step=step)
 
     # TODO define metric from which to choose if we want to save checkpoint
     return metrics['accuracy'].result(), perp
@@ -47,7 +52,7 @@ def validate(model, dataset, id2word, step):
 
 
 @tf.function
-def evaluate_step(sentence, labels, mask, step, id2word, metrics):
+def validate_step(sentence, labels, mask, model, step, id2word, metrics):
 
     # fill the last element of validation set to BATCH_SIZE
     batch_size = tf.shape(sentence)[0]
@@ -64,6 +69,7 @@ def evaluate_step(sentence, labels, mask, step, id2word, metrics):
     # mask out padding
     logits_masked = tf.boolean_mask(logits, mask)
     labels_masked = tf.boolean_mask(labels, mask)
+    preds_masked = tf.boolean_mask(preds, mask)
 
     # calculate masked loss
     loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=labels_masked, logits=logits_masked)
@@ -73,10 +79,11 @@ def evaluate_step(sentence, labels, mask, step, id2word, metrics):
     metrics['loss'].update_state(loss)
     metrics['accuracy'].update_state(y_true=labels_masked, y_pred=logits_masked)
     metrics['top5_accuracy'].update_state(y_true=labels_masked, y_pred=logits_masked)
+    # metrics['total_perplexity'].update_state(y_true=labels_masked, y_pred=preds_masked)
 
     perplexities = []
 
-    for i in tf.range(BATCH_SIZE):
+    for i in range(BATCH_SIZE):
 
         # select sample from batch
         sentence_labels = labels[i,:]
@@ -87,23 +94,20 @@ def evaluate_step(sentence, labels, mask, step, id2word, metrics):
         sentence_labels_masked = tf.boolean_mask(sentence_labels, sentence_mask)
         sentence_preds_masked = tf.boolean_mask(sentence_preds, sentence_mask)
 
-        # update total perplexity metric
-        metrics['total_perplexity'].update_state(y_true=sentence_labels_masked, y_pred=sentence_preds_masked)
-
         # calculate sentence level perplexity
-        metrics['sentence_perplexity'].update_state(y_true=sentence_labels_masked, y_pred=sentence_preds_masked)
-        perplexities.append(metrics['sentence_perplexity'].result())
-        metrics['sentence_perplexity'].reset_states()
+        perplexities.append(perp(y_true=sentence_labels_masked, y_pred=sentence_preds_masked))
+
+    # stack sentence perplexities
+    perplexities = tf.stack(perplexities, axis=0)
 
     # tensorboard text
     labels_text = format_to_text(words=labels, mask=mask, id2word=id2word)
     argmax_preds_text = format_to_text(words=predicted_words, mask=mask, id2word=id2word)
-    perplexities_text = tf.stack(perplexities, axis=0)
+    perplexities_text = tf.strings.as_string(perplexities, precision=3)
 
-    stacked_text = tf.stack([labels_text, perplexities_text, argmax_preds_text], axis=1)
-    tf.summary.text('valid/text_gt_perp_pred', stacked_text, step=step)
+    text = tf.stack([labels_text, perplexities_text, argmax_preds_text], axis=1)
 
-    return perplexities
+    return perplexities, text
 
 def format_to_text(words, mask, id2word):
 

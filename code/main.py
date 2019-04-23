@@ -18,13 +18,13 @@ import tensorflow as tf
 import datetime
 import argparse
 import sys
+import os
 sys.path.append('./')
 
 # Other imports
 from tensorflow.keras import Model
 
 # Local modules
-from dataset import build_dataset
 from util import build_vocab, build_vocab_lookup
 from model import LanguageModel
 
@@ -49,26 +49,38 @@ def main():
     '''
 
     parser = argparse.ArgumentParser(description='Define configuration of experiments')
-    parser.add_argument('mode', type=str, nargs='+', choices=['train', 'evaluate','generate'])
-    parser.add_argument('experiment', type=str, nargs=1, choices=['a','b','c'])
-    parser.add_argument('id',type=str, nargs="*")
+    parser.add_argument('--mode', type=str, nargs='+', choices=['train', 'evaluate','generate'], required=True)
+    parser.add_argument('--experiment', type=str, choices=['a','b','c'], required=True)
+    parser.add_argument('--id', type=str, required=False)
+    parser.add_argument('--epochs', type=int, default=EPOCHS, required=False)
+
     args = parser.parse_args()
+
 
     # Setting Experiment Id
     if args.id is None:
         exp_id = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         print(f"No Experiment Id Set, Creating New: {exp_id}")
     else:
-        exp_id = args.id
+        exp_id = args.id[0]
         print(f"Using Experiment Id: {exp_id}")
 
     # Setting Directories
     base_dir = f"{OUTPUT_DIR}/exp_{args.experiment}/{exp_id}"
     log_dir = f"{base_dir}/logs"
     submission_dir = f"{base_dir}/submissions"
+    if not os.path.exists(submission_dir):
+        os.makedirs(submission_dir)
     ckpt_dir = f"{base_dir}/ckpts"
 
+
+
     print(f"Experiment Directory: {base_dir}")
+
+    print(f"Using Tensorflow Version: {tf.__version__}")
+    print("Building Vocabulary...")
+    build_vocab(input_file=PATH_TRAIN, output_file=PATH_VOCAB, top_k=VOCAB_SIZE, special=SPECIAL)
+    word2id, id2word = build_vocab_lookup(PATH_VOCAB, "<unk>")
 
     # Setting Experiment Specific Configurations
     if args.experiment == 'a':
@@ -85,11 +97,6 @@ def main():
     else:
         raise ValueError(f"Unknown Experiment {args.experiment}")
 
-    print(f"Using Tensorflow Version: {tf.__version__}")
-
-    print("Building Vocabulary...")
-    build_vocab(input_file=PATH_TRAIN, output_file=PATH_VOCAB, top_k=VOCAB_SIZE, special=SPECIAL)
-    word2id, id2word = build_vocab_lookup(PATH_VOCAB, "<unk>")
 
     print(f'Initializing Model...')
     model = LanguageModel(vocab_size = VOCAB_SIZE,
@@ -124,7 +131,8 @@ def main():
                     model=model,
                     optimizer=optimizer,
                     word2id=word2id,
-                    id2word=id2word)
+                    id2word=id2word,
+                    epochs=args.epochs)
         model_loaded = True
 
     if "evaluate" in args.mode:

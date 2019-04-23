@@ -8,6 +8,8 @@ import numpy as np
 import pandas as pd
 from gensim import models
 
+from global_variable import PATH_VOCAB, PATH_EMBEDDING_MATRIX, PATH_EXTERNAL_EMBEDDING
+
 def load_embedding(dim_embedding, vocab_size):
 
     try:
@@ -60,7 +62,6 @@ def load_external_embedding(path, dim_embedding, vocab_size):
 
     emb = external_embedding
 
-    print('embedding type: ', type(emb))
     print(f'embedding shape: {emb.shape}')
 
     return emb

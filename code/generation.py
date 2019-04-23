@@ -16,7 +16,7 @@ import pandas as pd
 import tensorflow as tf
 
 # Local modules
-from global_variable import SPECIAL, SENTENCE_LENGTH, PATH_CONTINUATION, BATCH_SIZE, PATH_VOCAB, PATH_SUBMISSION
+from global_variable import SPECIAL, SENTENCE_LENGTH, PATH_CONTINUATION, BATCH_SIZE, PATH_VOCAB
 from util import build_vocab_lookup
 from dataset import build_continuation_dataset
 
