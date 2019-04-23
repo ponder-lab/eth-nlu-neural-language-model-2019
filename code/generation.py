@@ -36,6 +36,7 @@ def generate(word_to_index_table,index_to_word_table, model=None, path_submissio
 
     ds_continuation = build_continuation_dataset(PATH_CONTINUATION, vocab=word_to_index_table)
     ds_continuation = ds_continuation.batch(BATCH_SIZE)
+    # ds_continuation = ds_continuation.take(5)  # uncomment for demo purposes
     predicted_sentence = []
 
     print(f'model: {model}')
