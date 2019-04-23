@@ -1,18 +1,14 @@
-# Standard packages
-import numpy as np
-import pandas as pd
-import os
 
+# Data Paths
 PATH_TRAIN = "../data/sentences/sentences.train"
 PATH_VALID = "../data/sentences/sentences.eval"
 PATH_CONTINUATION = "../data/sentences/sentences.continuation"
 PATH_TEST = "../data/sentences/sentences_test.txt"
 PATH_VOCAB = "../data/vocab.txt"
-PATH_SUBMISSION = "../data/submission/"
-PATH_LOG = '../logs'
-PATH_CHECKPOINTS = '../tf_ckpts'
 PATH_EXTERNAL_EMBEDDING = "../data/wordembeddings-dim100.word2vec"
 PATH_EMBEDDING_MATRIX = "../data/embedding_matrix.npy"
+
+OUTPUT_DIR = "../out"
 
 SPECIAL = {
     "bos" : "<bos>",
@@ -33,4 +29,4 @@ LSTM_OUTPUT_SIZE = 512
 EPOCHS = 5
 GRADIENT_CLIPPING_NORM = 5
 
-SUMMARY_FREQ = 200
+SUMMARY_FREQ = 500

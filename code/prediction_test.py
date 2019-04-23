@@ -1,5 +1,5 @@
 '''
-Natural Language Understanding 
+Natural Language Understanding
 
 Project 1: Neural Language Model
 Task 1: RNN Language Modelling
@@ -28,11 +28,9 @@ from dataset import build_dataset
 from util import build_vocab, build_vocab_lookup
 from model import LanguageModel, Perplexity
 from embedding import load_embedding
-from predict_sentences import conditional_generation
-from task1 import run_task1
-from global_variable import * #@UnusedWildImport
-from task1 import run_task1
-from predict_sentences import conditional_generation
+
+from global_variable import *
+from generate import conditional_generation
 
 __author__ = 'Nicolas Küchler, Philippe Blatter, Lucas Brunner, Fynn Faber'
 __email__ = 'kunicola@student.ethz.ch, pblatter@student.ethz.ch, brunelu@student.ethz.ch, faberf@student.ethz.ch'

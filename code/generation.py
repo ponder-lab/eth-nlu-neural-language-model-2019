@@ -1,10 +1,10 @@
 '''
-Natural Language Understanding 
+Natural Language Understanding
 
 Project 1: Neural Language Model
 Task 1: RNN Language Modelling
 
-File used for task 1.2. Functions used to generate sentence endings. 
+File used for task 1.2. Functions used to generate sentence endings.
 
 Authors: Nicolas Küchler, Philippe Blatter, Lucas Brunner, Fynn Faber
 Date: 17.04.2019
@@ -20,7 +20,7 @@ from global_variable import SPECIAL, SENTENCE_LENGTH, PATH_CONTINUATION, BATCH_S
 from util import build_vocab_lookup
 from dataset import build_continuation_dataset
 
-def conditional_generation(word_to_index_table,index_to_word_table, model=None):
+def generate(word_to_index_table,index_to_word_table, model=None, path_submission=None):
     '''
     Builds a dataset of the sentences that will be extended by our model. Used our model
     to predict sentences of length less or equal than 20. If the <eos> tag occurs
@@ -42,7 +42,7 @@ def conditional_generation(word_to_index_table,index_to_word_table, model=None):
 
     # sentence in \[batch_size, sentence_length-1]
     # length in \[batch_size]
-    for sentence, length in ds_continuation: 
+    for sentence, length in ds_continuation:
         #print(f'sentence shape: {sentence.shape}')
         #print(f'length shape: {length.shape}')
         #print(f'length: {length}')
@@ -52,10 +52,10 @@ def conditional_generation(word_to_index_table,index_to_word_table, model=None):
         if (size_batch != 64):
             sentence = tf.concat([sentence,tf.zeros((BATCH_SIZE-size_batch,sentence.shape[1]),dtype=tf.int64)],axis=0)
 
-        #make 20 predictions
+        # make 20 predictions
         for i in range(20):
 
-            logits = model(sentence) # \in [batch_size, sentence_length-1, vocab_size]            
+            logits = model(sentence) # \in [batch_size, sentence_length-1, vocab_size]
             preds = tf.nn.softmax(logits, name=None)
             preds = tf.argmax(preds, axis=2) # \in [batch_size, sentence_length - 1]
 
@@ -63,7 +63,7 @@ def conditional_generation(word_to_index_table,index_to_word_table, model=None):
 
             # add new word to each input sentence
             for i in range(BATCH_SIZE):
-                
+
                 # print(f'appending a word to sentence: {i}')
 
                 # casting applied as eager tensor doesn't support assigning -> even though I am pretty
@@ -107,8 +107,8 @@ def conditional_generation(word_to_index_table,index_to_word_table, model=None):
 
             #TODO filter out end of sentence if it contains <eos>
             predicted_sentence.append(curr_sentence)
-             
-        
+
+
         #only one batch for now
         #break
     #print(predicted_sentence)
@@ -118,7 +118,7 @@ def conditional_generation(word_to_index_table,index_to_word_table, model=None):
     #print(f'pred[0]: {pred[0]}')
     #print(f'type(pred[0]): {type(pred[0])}')
     #pred = sentences_to_text(index_to_word_table,pred)
-    pd.DataFrame(pred).to_csv(PATH_SUBMISSION+'group35.continuation',sep=' ', header=False , index=False)
+    pd.DataFrame(pred).to_csv(path_submission, sep=' ', header=False , index=False)
     return
 
 
@@ -134,7 +134,7 @@ def sentences_to_text(index_to_word_table, sentence):
         - sentence where the IDs of the words are replaced with the actual words (strings)
     '''
 
-    ## ====================================================================== 
+    ## ======================================================================
     # not sure if this block is necessary..?
     sentence = tf.cast(sentence, dtype=tf.int64)
     #print(f'type of sentence [0]: {type(sentence[0])}')
@@ -150,10 +150,6 @@ def sentences_to_text(index_to_word_table, sentence):
     result = []
     for idx in sentence:
         result.append(index_to_word_table.lookup(idx).numpy().decode('utf-8'))
-    
+
     #print(f'result: {result}')
     return result
-
-
-
-
