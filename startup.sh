@@ -1,6 +1,6 @@
 #only when running for the first time
 
-module load python_gpu/3.6.4 cuda/10.0.130
+module load python_gpu/3.6.4 cuda/10.0.130 cudnn/7.5
 
 pip install --user pipenv
 virtualenv --system-site-packages -p python3 ./venv

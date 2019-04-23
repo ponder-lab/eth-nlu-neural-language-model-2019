@@ -1,7 +1,7 @@
 #leonhard logs
 lsf.*
 
-
+/out
 /logs
 **/logs/
 **/tf_ckpts/
