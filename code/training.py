@@ -27,12 +27,12 @@ def train(ckpt, manager, model, optimizer, word2id, id2word, epochs):
     ds_train = ds_train.shuffle(SHUFFLE_BUFFER_SIZE)
     ds_train = ds_train.batch(BATCH_SIZE,  drop_remainder=True)
     ds_train = ds_train.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
-    # ds_train = ds_train.take(1) # uncomment for demo purposes
+    #ds_train = ds_train.take(5) # uncomment for demo purposes
 
     ds_valid = build_dataset(PATH_VALID, vocab=word2id)
     ds_valid = ds_valid.batch(BATCH_SIZE)
     ds_valid = ds_valid.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
-    # ds_valid = ds_valid.take(2)  # uncomment for demo purposes
+    #ds_valid = ds_valid.take(1)  # uncomment for demo purposes
 
     # Define Train Metrics
     metrics_train = {}

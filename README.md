@@ -40,5 +40,5 @@ python main.py --experiment c --mode train --epochs 2 --id final
 ## Notes
 
 - To it edit the run.sh file to have the rights commands for the run
-- tensorboard is supported: tensorboar --logdir logs
+- tensorboard is supported: tensorboard --logdir logs
 - module load cuda/10.0.130 module load cudnn/7.5

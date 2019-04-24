@@ -149,3 +149,30 @@ class LanguageModel(tf.keras.Model):
         logits = tf.stack(logits, axis=1)
 
         return logits
+
+    def step(self,word_id,state=None):
+        '''
+        Method performs one step of model
+        Arguments:
+            - word_id: a batch size of wordsbased on which the model performs a step
+            - state: if given the state of previous step
+        Returns:
+            - word_id: a batch of words computed in this step
+            - state: the new state    
+        '''
+        #initial state 
+        if state == None:
+            init_state = tf.zeros([self.batch_size, self.hidden_state_size])
+            state = (init_state, init_state)
+
+        word_embedding_batch = self.embedding(word_id)
+
+        output, state = self.lstm_cell(word_embedding_batch, state)
+
+        # project y_t down to output size |vocab|
+        if self.output_size != self.hidden_state_size:#beacuse we only generate in 1c, this will always be the case. 
+            output = self.projection_layer(output) # \in [batch_size, output_size]
+
+        output = self.softmax_layer(output)
+
+        return output, state
