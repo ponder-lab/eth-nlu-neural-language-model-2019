@@ -36,7 +36,7 @@ def generate(word_to_index_table,index_to_word_table, model=None, path_submissio
 
     ds_continuation = build_continuation_dataset(PATH_CONTINUATION, vocab=word_to_index_table)
     ds_continuation = ds_continuation.batch(BATCH_SIZE)
-    # ds_continuation = ds_continuation.take(5)  # uncomment for demo purposes
+    ds_continuation = ds_continuation.take(5)  # uncomment for demo purposes
     predicted_sentence = []
 
     print(f'model: {model}')
@@ -44,9 +44,7 @@ def generate(word_to_index_table,index_to_word_table, model=None, path_submissio
     # sentence in \[batch_size, sentence_length-1]
     # length in \[batch_size]
     for sentence, length in ds_continuation:
-        #print(f'sentence shape: {sentence.shape}')
-        #print(f'length shape: {length.shape}')
-        #print(f'length: {length}')
+        
         size_batch = sentence.shape[0]
 
         # if last fraction is less than the batch size, apply zero padding
@@ -65,14 +63,15 @@ def generate(word_to_index_table,index_to_word_table, model=None, path_submissio
             # add new word to each input sentence
             for i in range(BATCH_SIZE):
 
-                # print(f'appending a word to sentence: {i}')
-
+                print(f'appending a word to sentence: {i}')
+                print(f'current sentence before prediction: {sentences_to_text(index_to_word_table,sentence[0,:])}')
                 # casting applied as eager tensor doesn't support assigning -> even though I am pretty
                 # sure that there is a cleaner way to do this
                 sentence_np = sentence.numpy()
                 sentence_np[i,length[i]]=preds[i,length[i]-1]
                 sentence = tf.convert_to_tensor(sentence_np, dtype=tf.int64)
                 #sentence[i,length[i]].assign(preds[i,length[i]-1])
+                print(f'current sentence after prediction: {sentences_to_text(index_to_word_table,sentence[0,:])}\n')
 
             #add one to the length
             length = tf.math.add(length,[tf.constant(1)])
@@ -90,15 +89,10 @@ def generate(word_to_index_table,index_to_word_table, model=None, path_submissio
 
             #find position of <eos>
             eos = np.where(curr_sentence==1) # <eos> is has index 1 (hardcoded)
-            #print(f'type of eos: {type(eos)}')
-            #print(f'eos: {eos}')
-            #print(f'eos[0]: {eos[0]}')
 
             # if there is an <eos> pad in the sentence, compute the index of the first appearance
             # if no <eos> was predicted, use 20 as an upper bound
             idx = (eos[0])[0]+1 if len(eos[0])>0 else 21
-
-            #print(f'idx: {idx}')
 
             #take part to <eos> or at most 20 words
             curr_sentence = curr_sentence[1:idx]
@@ -110,16 +104,16 @@ def generate(word_to_index_table,index_to_word_table, model=None, path_submissio
             predicted_sentence.append(curr_sentence)
 
 
-        #only one batch for now
-        #break
-    #print(predicted_sentence)
-    #print(len(predicted_sentence[0]))
-    pred = np.array(predicted_sentence)
-    #pred = tf.convert_to_tensor(pred, dtype=tf.int64)
-    #print(f'pred[0]: {pred[0]}')
-    #print(f'type(pred[0]): {type(pred[0])}')
-    #pred = sentences_to_text(index_to_word_table,pred)
-    pd.DataFrame(pred).to_csv(path_submission, sep=' ', header=False , index=False)
+    f = open(path_submission, 'x')
+    for sentence in predicted_sentence:
+        f.write(' '.join(sentence))
+        f.write('\n')
+    f.close()
+    
+
+    #pred = np.array(predicted_sentence)
+    #pd.DataFrame(pred).to_csv(path_submission, sep=' ', header=False , index=False)
+    
     return
 
 
