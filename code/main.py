@@ -62,7 +62,7 @@ def main():
         exp_id = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         print(f"No Experiment Id Set, Creating New: {exp_id}")
     else:
-        exp_id = args.id[0]
+        exp_id = args.id
         print(f"Using Experiment Id: {exp_id}")
 
     # Setting Directories
