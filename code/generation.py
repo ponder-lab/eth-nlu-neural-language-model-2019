@@ -101,7 +101,7 @@ def generate(word_to_index_table,index_to_word_table, model=None, path_submissio
             predicted_sentence.append(curr_sentence)
 
     #add spaces between words and write them to file
-    f = open(path_submission, 'x')
+    f = open(path_submission, 'w')
     for sentence in predicted_sentence:
         f.write(' '.join(sentence))
         f.write('\n')

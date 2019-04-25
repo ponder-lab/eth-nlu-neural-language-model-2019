@@ -31,20 +31,16 @@ def validate(model, dataset, id2word, step):
     metrics['total_perplexity'] = Perplexity(name="valid_total_perplexity")
 
     perp = []
-    text = []
-    text.append(tf.constant(['**Ground Truth**', '**Sentence Perplexity**', '**Prediction (argmax)**'], shape=[1,3]))
     # loop over dataset in batches
     for sentence, labels, mask in dataset:
-        perplexities_batch, text_batch = validate_step(sentence=sentence, labels=labels, mask=mask, model=model, step=step, id2word=id2word, metrics=metrics)
+        perplexities_batch = validate_step(sentence=sentence, labels=labels, mask=mask, model=model, step=step, id2word=id2word, metrics=metrics)
         perp.append(perplexities_batch)
-        text.append(text_batch)
 
     # log metrics after complete pass through dataset
     tf.summary.scalar('valid/loss', metrics['loss'].result(), step=step)
     tf.summary.scalar('valid/accuracy', metrics['accuracy'].result(), step=step)
     tf.summary.scalar('valid/top5_accuracy', metrics['top5_accuracy'].result(), step=step)
     tf.summary.scalar('valid/total_perplexity', metrics['total_perplexity'].result(), step=step)
-    tf.summary.text('valid/text_gt_perp_pred', tf.concat(text, axis=0), step=step)
 
     # TODO define metric from which to choose if we want to save checkpoint
     return metrics['accuracy'].result(), perp
@@ -106,8 +102,11 @@ def validate_step(sentence, labels, mask, model, step, id2word, metrics):
     perplexities_text = tf.strings.as_string(perplexities, precision=3)
 
     text = tf.stack([labels_text, perplexities_text, argmax_preds_text], axis=1)
+    text = tf.concat([tf.constant(['**Ground Truth**', '**Sentence Perplexity**', '**Prediction (argmax)**'], shape=[1,3]), text], axis=0)
 
-    return perplexities, text
+    tf.summary.text('valid/text_gt_perp_pred', text, step=step)
+
+    return perplexities
 
 def format_to_text(words, mask, id2word):
 
