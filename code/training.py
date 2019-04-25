@@ -51,15 +51,15 @@ def train(ckpt, manager, model, optimizer, word2id, id2word, epochs):
 
         print(f"Start Validation of Epoch {epoch}")
         validation_score, _ = validate(model=model, dataset=ds_valid, id2word=id2word, step=optimizer.iterations)
+        print(f"Validation Score {validation_score}")
 
-    ckpt.step.assign_add(1)
+        ckpt.step.assign_add(1)
 
-    if validation_score > best_validation_score:
-        # current validation score is better than previous -> store checkpoints
-        best_validation_score = validation_score
-        save_path = manager.save()
-        print(f"Saved checkpoint for step {int(ckpt.step)}: {save_path}")
-        print(f"Validation Score {validation_score.numpy()}")
+        if validation_score > best_validation_score:
+            # current validation score is better than previous -> store checkpoints
+            best_validation_score = validation_score
+            save_path = manager.save()
+            print(f"Saved checkpoint for step {int(ckpt.step)}: {save_path}")
 
 @tf.function
 def train_step(model, optimizer, metrics, sentence, labels, mask, id2word):
