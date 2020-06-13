@@ -1,6 +1,17 @@
-# NLU Project 1 - ETHZ 2019
+# NLU Project 1 - Group 35 - ETHZ 2019
 
 ## Running Instructions
+
+#### Setup on Leonhard
+
+1. Load Modules
+```
+module load gcc/4.8.5 python_gpu/3.6.4 hdf5 eth_proxy
+module load cuda/10.0.130
+module load cudnn/7.5
+```
+
+2. Create Virtual Environmentwith the files requirements.txt
 
 #### Exercise 1a
 ```
@@ -36,6 +47,11 @@ python main.py --experiment c --mode train --epochs 5 --id final
 python main.py --experiment c --mode train --epochs 2 --id final
 ```
 
+## Authors
+- Brunner Lucas	brunnelu@student.ethz.ch
+- Blatter Philippe	pblatter@student.ethz.ch
+- Küchler Nicolas	kunicola@student.ethz.ch
+- Fynn Faber	faberf@student.ethz.ch
 
 ## Notes
 
