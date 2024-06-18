@@ -108,6 +108,7 @@ def validate_step(sentence, labels, mask, model, step, id2word, metrics):
 
     return perplexities
 
+@tf.function
 def format_to_text(words, mask, id2word):
 
     # convert from id to words

@@ -111,6 +111,7 @@ class LanguageModel(tf.keras.Model):
                 bias_constraint=None
             )
 
+    @tf.function
     def call(self, sentence_id_batch):
 
         # initialize lstm state

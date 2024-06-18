@@ -7,6 +7,7 @@ class Perplexity(tf.metrics.Metric):
         self.sum = self.add_weight(dtype=tf.float64,name='perp_sum_log_probs', initializer='zeros')
         self.n = self.add_weight(dtype=tf.int32,name='perp_n', initializer='zeros')
 
+    @tf.function
     def update_state(self, y_true, y_pred, sample_weight=None):
         '''
 
